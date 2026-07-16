@@ -1,14 +1,11 @@
 * ============================================================================
 * 08: Plot the yearly trend of the task measures by 1-digit FEOR major group
 * ============================================================================
-* Two small-multiples line charts from the pooled panel, the same data seen
-* from both sides:
-*   figure 1  one panel per FEOR-08 major group (first digit, 1-9; group 0,
-*             armed forces, is excluded - see below), one line per task
-*             category
-*   figure 2  one panel per task category, one line per major group
-* x = data year. The plotted value is always the unweighted mean of the
-* standardized composites (task_*_z) across the group's 4-digit codes.
+* A small-multiples line chart from the pooled panel: one panel per FEOR-08
+* major group (first digit, 1-9; group 0, armed forces, is excluded - see
+* below), one line per task category. x = data year. The plotted value is
+* the unweighted mean of the standardized composites (task_*_z) across the
+* group's 4-digit codes.
 *
 * NOTE: the composites are standardized WITHIN each year (step 05), so a
 * trend line shows a group's relative position drifting across years, not a
@@ -20,9 +17,8 @@
 * hue alone). More than 8 categories fails loudly.
 *
 * Reads:  output/${taskdef_name}/task_measures_feor08_panel.dta
-* Writes: output/${taskdef_name}/task_trends_feor1.png          (fig 1)
-*         output/${taskdef_name}/task_trends_feor1_by_task.png  (fig 2)
-* Both figures are embedded in the README.
+* Writes: output/${taskdef_name}/task_trends_feor1.png
+* The figure is embedded in the README.
 *
 * Run from the project root:  do "code/08_plot_trends.do"
 * ============================================================================
@@ -48,7 +44,7 @@ label define feor1 ///
 	9 "9 Elementary", replace
 label values feor1 feor1
 
-* Major group 0 (armed forces) is excluded from both figures: 0110/0210 are
+* Major group 0 (armed forces) is excluded from the figure: 0110/0210 are
 * never rated in O*NET, and 0310 rests on a single thin source that is only
 * rated from data year 2020 - the group's line is more artifact than signal.
 drop if feor1 == 0
@@ -108,52 +104,3 @@ twoway `plots', ///
 	xsize(9) ysize(8)
 
 graph export "output/${taskdef_name}/task_trends_feor1.png", replace width(2600)
-
-* ============================================================================
-* Figure 2: the transposed view - one panel per task category, one line per
-* FEOR major group
-* ============================================================================
-* Nine series exceed the 8-slot categorical palette by one, so group 9 takes
-* a neutral extension (gray). Identity still never rides on hue alone: every
-* series keeps its own color x pattern pair, and within a panel the groups'
-* rank separation does most of the work.
-local color9   "82 81 78"
-local pattern9 solid
-
-* Long over task categories, encoded in $taskcats order so the panels appear
-* in the definition's own order with the definition's labels.
-reshape long task_@_z, i(feor1 year) j(cat) string
-generate int catnum = .
-capture label drop catlab
-local i 0
-foreach c in $taskcats {
-	local ++i
-	replace catnum = `i' if cat == "`c'"
-	label define catlab `i' "${lab_`c'}", add
-}
-assert !missing(catnum)
-label values catnum catlab
-
-local plots ""
-local legorder ""
-foreach g of numlist 1/9 {
-	local plots `plots' ///
-		(line task__z year if feor1 == `g', lcolor("`color`g''") lpattern(`pattern`g'') lwidth(medthick))
-	local lbl : label feor1 `g'
-	local legorder `legorder' `g' `"`lbl'"'
-}
-
-twoway `plots', ///
-	by(catnum, rows(1) note("") legend(position(6)) ///
-		graphregion(color(white)) plotregion(color(white))) ///
-	yline(0, lcolor("195 194 183") lwidth(thin)) ///
-	ylabel(, grid glcolor("225 224 217") glwidth(vthin) angle(horizontal) labsize(small) labcolor("82 81 78")) ///
-	xlabel(`ymin'(3)`ymax', labsize(small) labcolor("82 81 78")) ///
-	ytitle("Task measure (z, standardized within year)", size(small)) ///
-	xtitle("") ///
-	subtitle(, size(small) bcolor(white)) ///
-	legend(order(`legorder') rows(2) size(small) region(lstyle(none))) ///
-	graphregion(color(white)) plotregion(color(white)) ///
-	xsize(13) ysize(5)
-
-graph export "output/${taskdef_name}/task_trends_feor1_by_task.png", replace width(2600)

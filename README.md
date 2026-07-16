@@ -17,14 +17,35 @@ do code/00_master.do
 ```
 
 The master builds the crosswalks once, loops over the `years` and `defs`
-macros, then pools each definition into a panel and draws its figures. It
-needs no network access — see [Repository layout](#repository-layout).
+macros, then pools each definition into a panel and draws its figure.
+
+## Output
+
+For each definition (`<def>` = `acemoglu-autor-2011`, `autor-dorn-2013`):
+
+- `output/<year>/<def>/task_measures_feor08.dta` — one file per data year;
+  one row per FEOR-08 code, the definition's composites in raw (`task_*`) and
+  standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`.
+- `output/<def>/task_measures_feor08_panel.dta` — the seven years stacked
+  long, one row per FEOR-08 code × `year`.
+- `output/<def>/task_trends_feor1.png` — the trend figure shown under
+  [Task definitions](#task-definitions).
+
+These files are committed, so the measures can be used without running Stata.
+They cover **470–471 of the 485** four-digit FEOR-08 codes, depending on the
+year; the gaps are structural — occupations O\*NET never rates — not pipeline
+defects. Full audit: [docs/NOTES.md](docs/NOTES.md#feor-08-coverage).
+
+**Cross-year comparability caveat:** the composites are standardized *within*
+each year's release (step 05). A value is an occupation's relative position
+among that year's occupations; changes across years are changes in relative
+position, not in task levels.
 
 ## Pipeline (`code/`)
 
 File names sort in run order. Steps 01 and 03–07 take the data year as a
 do-file argument (e.g. `do "code/03_append_onet.do" 2023`; step 07 takes the
-year list) and default to 2022 standalone. Step 02 is year-independent.
+year list). Step 02 is year-independent.
 
 | Step | File | Scope | What it does |
 |------|------|-------|--------------|
@@ -37,7 +58,7 @@ year list) and default to 2022 standalone. Step 02 is year-independent.
 | 05 | `05_build_measures.do` | year × def | Standardizes each element (within the year's release), reverse-codes where flagged, composites = unweighted means of standardized elements, re-standardized (`task_*_z`). |
 | 06 | `06_crosswalk_feor.do` | year × def | Crosswalks the composites from O\*NET-SOC down to FEOR-08 (chain depends on the year — see [Crosswalk chain](#crosswalk-chain)). |
 | 07 | `07_build_panel.do` | per def | Appends the per-year FEOR-08 files into one long panel with a `year` variable. |
-| 08 | `08_plot_trends.do` | per def | Draws the yearly trends from the panel, in both views (the figures under [Task definitions](#task-definitions)). |
+| 08 | `08_plot_trends.do` | per def | Draws the yearly trend figure from the panel (shown under [Task definitions](#task-definitions)). |
 
 ## Repository layout
 
@@ -51,14 +72,11 @@ temp/                  pipeline intermediates                     [ignored]
 output/                the task measures + figures                [in git]
 ```
 
-**The repo is self-contained: it runs offline, with no downloads.** The three
-xlsx per data year are committed (~24 MB per year, ~170 MB total, largest
-file 17 MB). The full release zips are *not*: they would nearly double that
-(~320 MB), and the 24.1 zip alone exceeds GitHub's 50 MB per-file warning.
-`01_download_onet.do` re-downloads a release into the gitignored `raw/` cache
-only when a year's xlsx are missing — e.g. after adding a new data year.
-`temp/` is likewise regenerated in full by steps 03–06; nothing in it is a
-source of truth.
+The three xlsx per data year are committed; the full release zips are not —
+they would nearly double the repo size. `01_download_onet.do` re-downloads a
+release into the gitignored `raw/` cache only when a year's xlsx are missing,
+e.g. after adding a new data year. `temp/` is likewise regenerated in full by
+steps 03–06; nothing in it is a source of truth.
 
 ## Crosswalk chain
 
@@ -72,20 +90,19 @@ O\*NET-SOC 2019 taxonomy (built on 2018 SOC), while the repo's ISCO-08
 crosswalk is keyed to 2010 SOC; there is no direct SOC-2018 → ISCO-08
 crosswalk, so it routes through the official BLS SOC-2010 ↔ ISCO-08 mapping.
 
-Data year 2019 (release 24.1) is still on the O\*NET-SOC **2010** taxonomy and
-skips both 2018-SOC legs. Its O\*NET-SOC → SOC 2010 step needs no crosswalk
-file: by construction, the first 7 characters of an O\*NET-SOC 2010 code
-(`XX-XXXX.YY`) *are* its 2010 SOC code, and step 06 takes the substring.
-(O\*NET publishes no downloadable 2010-taxonomy → SOC crosswalk, so this is
-also the only option.)
+Data year 2019 skips both 2018-SOC legs (release 24.1 is still on the
+O\*NET-SOC 2010 taxonomy — see the [version policy](#the-onet-database)).
+Its O\*NET-SOC → SOC 2010 step needs no crosswalk file: by construction, the
+first 7 characters of an O\*NET-SOC 2010 code (`XX-XXXX.YY`) *are* its 2010
+SOC code, and step 06 takes the substring. (O\*NET publishes no downloadable
+2010-taxonomy → SOC crosswalk, so this is also the only option.)
 
 At every leg, occupations that map many-to-one are aggregated with an
-**unweighted mean** (`joinby` expands all matches, then `collapse (mean)`).
+unweighted mean — see [Methodology notes](#methodology-notes--decisions).
 
 ## Data sources and provenance
 
-All inputs come from official sources and all are committed, so the pipeline
-needs no network access.
+All inputs come from official sources and all are committed.
 
 ### The O\*NET database
 
@@ -110,137 +127,46 @@ the `years` macro in `00_master.do`.
 `02_build_crosswalks.do` builds these from the raw files in
 `input/crosswalks/raw/`, so they are reproducible rather than taken on trust:
 
-| Leg | Crosswalk | Raw source | How it gets there |
-|-----|-----------|------------|-------------------|
-| 1 | O\*NET-SOC 2019 → SOC 2018 | `2019_to_SOC_Crosswalk.xlsx` | downloaded by step 02 |
-| 2 | SOC 2010 ↔ SOC 2018 | `soc_2010_to_2018_crosswalk.xlsx` | committed |
-| 3 | SOC 2010 ↔ ISCO-08 | `ISCO_SOC_Crosswalk.xls` | committed |
+| Leg | Crosswalk | Raw file | How it gets there | Official source |
+|-----|-----------|----------|-------------------|-----------------|
+| 1 | O\*NET-SOC 2019 → SOC 2018 | `2019_to_SOC_Crosswalk.xlsx` | downloaded by step 02 | [O\*NET-SOC 2019 taxonomy](https://www.onetcenter.org/taxonomy/2019/soc.html) |
+| 2 | SOC 2010 ↔ SOC 2018 | `soc_2010_to_2018_crosswalk.xlsx` | committed | [BLS 2018 SOC crosswalks](https://www.bls.gov/soc/2018/crosswalks.htm) |
+| 3 | SOC 2010 ↔ ISCO-08 | `ISCO_SOC_Crosswalk.xls` | committed | [BLS 2010 SOC crosswalks](https://www.bls.gov/soc/soccrosswalks.htm) |
 
 The two BLS files are committed rather than fetched because BLS returns
-**HTTP 403** to `curl` and Stata's `copy` — the links below are correct but
-succeed only from an interactive browser session.
+**HTTP 403** to `curl` and Stata's `copy` — the direct links
+(`https://www.bls.gov/soc/2018/soc_2010_to_2018_crosswalk.xlsx`,
+`https://www.bls.gov/soc/ISCO_SOC_Crosswalk.xls`) are correct but succeed
+only from an interactive browser session.
 
-| Leg | Landing page | Direct file |
-|-----|--------------|-------------|
-| 2 | [BLS 2018 SOC crosswalks](https://www.bls.gov/soc/2018/crosswalks.htm) | `https://www.bls.gov/soc/2018/soc_2010_to_2018_crosswalk.xlsx` |
-| 3 | [BLS 2010 SOC crosswalks](https://www.bls.gov/soc/soccrosswalks.htm) | `https://www.bls.gov/soc/ISCO_SOC_Crosswalk.xls` |
-
-Two decisions in leg 3:
-
-- **Minor-group expansion.** BLS maps a few SOC codes to a 3-digit ISCO
-  *minor group* instead of a 4-digit unit group (currently `211` and `315`).
-  The pipeline joins on 4-digit `isco08`, so those rows would silently match
-  nothing and the occupations would vanish. Each minor group is expanded to
-  every unit group it contains, using the ISCO→FEOR crosswalk as the list of
-  valid unit groups. The minor-group test is on **string length**, not
-  numeric value: the armed-forces codes `0110`/`0210`/`0310` are genuine
-  4-digit unit groups whose leading zero `real()` silently drops.
-- **SOC 29-2055 restored.** The previously shipped `soc10_isco08.dta` omitted
-  Surgical Technologists → ISCO 3259 with no rule accounting for it, so that
-  occupation's task content reached no Hungarian occupation at all. The
-  rebuild restores it; apart from this it reproduces the previously shipped
-  crosswalks **exactly** — legs 1 and 2 row-for-row, leg 3 with this single
-  addition. It moves one FEOR code: `3339` (*Egyéb, humánegészségügyhöz
-  kapcsolódó foglalkozások*), by at most 0.065 SD.
+Leg 3 needs one fix-up: BLS maps a few SOC codes to 3-digit ISCO *minor
+groups*, which step 02 expands to their 4-digit unit groups — see
+[docs/NOTES.md](docs/NOTES.md#leg-3-minor-group-expansion).
 
 ### Transcribed from the KSH PDF (leg 4)
 
-KSH publishes the ISCO-08 → FEOR-08 mapping only as a **PDF** (committed at
-`input/crosswalks/raw/fordkulcs_isco_feor_hu.pdf`), which Stata cannot read.
-The committed CSV next to it is a faithful transcription of the PDF's table
-(548 rows: 536 mappings plus 12 ISCO unit groups KSH marks as having no
-FEOR-08 counterpart), produced by `code/extract_isco08_feor08_pdf.py`
-(Python + pdfplumber). The script is not part of the Stata pipeline — it
-documents how the CSV was made and can be re-run to verify it against the
-PDF. `02_build_crosswalks.do` builds `crosswalk_isco08_feor08.dta` from the
-CSV.
-
-| Leg | Landing page | Direct file |
-|-----|--------------|-------------|
-| 4 | [KSH FEOR-08 menu](https://www.ksh.hu/feor_menu) | `https://www.ksh.hu/docs/osztalyozasok/feor/fordkulcs_isco_feor_hu.pdf` (ISCO→FEOR), [methodology](https://www.ksh.hu/docs/osztalyozasok/feor/feor_isco_modsz_utmut_2013_12_19.pdf) |
-
-**The rebuild vs. the previously shipped file.** The previously shipped
-`.dta` (provenance unknown) differed from the PDF by seven mappings: four PDF
-rows were missing from it — `3341→3161`, `4412→3161`, `6111→6114`,
-`6113→6113` — and three rows it contained appear nowhere in the PDF:
-`1112→1121`, `3119→3134`, `3432→3715`. Its titles also carried typos absent
-from the PDF (e.g. *Víhordók* for *Vízhordók*), suggesting a hand
-transcription or a different revision. The rebuild follows the committed PDF
-exactly. Downstream, FEOR `3134` loses its only ISCO source (`3119`) and
-drops out of the output; the set of 4-digit ISCO unit groups — which leg 3's
-minor-group expansion relies on — is identical in both versions.
-
-## Output
-
-For each definition (`<def>` = `acemoglu-autor-2011`, `autor-dorn-2013`):
-
-- `output/<year>/<def>/task_measures_feor08.dta` — one file per data year;
-  one row per FEOR-08 code, the definition's composites in raw (`task_*`) and
-  standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`.
-- `output/<def>/task_measures_feor08_panel.dta` — the seven years stacked
-  long, one row per FEOR-08 code × `year`.
-- `output/<def>/task_trends_feor1*.png` — the two trend figures shown under
-  [Task definitions](#task-definitions).
-
-These files are committed, so the measures can be used without running Stata.
-
-**Cross-year comparability caveat:** the composites are standardized *within*
-each year's release (step 05). A value is an occupation's relative position
-among that year's occupations; changes across years are changes in relative
-position, not in task levels.
-
-### FEOR-08 coverage
-
-The official FEOR-08 nomenclature ([KSH structure listing](https://www.ksh.hu/docs/szolgaltatasok/hun/feor08/feorlista.html))
-has **485** four-digit occupations; the 2022 output covers **470** of them
-(97%). The audit below was done in full for data year 2022; the other years
-differ only at the margin (verified from the built outputs, 2026-07-16):
-
-| Years | Codes | Difference vs 2022 |
-|-------|-------|--------------------|
-| 2020–2023 | 470 | — |
-| 2019 | 471 | gains `2226` (EMTs are the single rated 29-2041 under the 2010 taxonomy) and `3410`; loses `0310` (its lone source, 55-3017, is an unrated military code before the SOC-2018 reclassification — see the `0310` caveat below) |
-| 2024–2025 | 471 | gains `3410` (its SOC sources are rated from release 29.1 on) |
-
-The 15 codes missing in 2022 are structural, not pipeline defects:
-
-**No ISCO source in the KSH crosswalk (1 code).** FEOR `3134`
-(*Környezetvédelmi technikus*) is never assigned from any ISCO unit group in
-the fordítókulcs. (The previously shipped crosswalk patched this with a
-`3119→3134` mapping that has no basis in the published key — see the leg-4
-rebuild note above.)
-
-**Mapped, but no O\*NET data behind any source (14 codes).** These trace back
-exclusively to SOC occupations the O\*NET release never rates — its three
-known blind spots:
-
-| FEOR | Blind spot |
-|------|-----------|
-| `0110`, `0210` (military officers / NCOs) | O\*NET rates no military (SOC 55-) occupation |
-| `1110`, `1122` (törvényhozó; választott önkormányzati vezető) | ← ISCO 1111 ← SOC 11-1031 *Legislators*, unrated in O\*NET |
-| `2226` (mentőtiszt) | ← EMTs/Paramedics 29-2042/43, a 2018 SOC split not yet rated in the 2022 release |
-| `2728`, `2729`, `3410`, `3730`, `4213`, `7915`, `8123`, `9222`, `9238` | fed only by SOC "All Other" residual codes, which O\*NET never rates |
-
-The absence was verified in the raw O\*NET source files themselves (the
-occupations are missing from Abilities / Work Activities / Work Context
-entirely); the pipeline drops nothing on its own.
-
-**Caveat — FEOR `0310`.** The third military code *does* receive measures
-(from 2020 on), but only because one of its nine SOC 2010 sources (55-3017,
-*Radar and Sonar Technicians*) was reclassified to the civilian, rated code
-17-3029 in SOC 2018. Its task content rests on a single, arguably
-unrepresentative source; treat it with care alongside the deliberately
-missing `0110`/`0210`.
+KSH publishes the ISCO-08 → FEOR-08 mapping only as a **PDF**
+([direct link](https://www.ksh.hu/docs/osztalyozasok/feor/fordkulcs_isco_feor_hu.pdf),
+[KSH FEOR-08 menu](https://www.ksh.hu/feor_menu),
+[methodology](https://www.ksh.hu/docs/osztalyozasok/feor/feor_isco_modsz_utmut_2013_12_19.pdf);
+committed at `input/crosswalks/raw/fordkulcs_isco_feor_hu.pdf`), which Stata
+cannot read. The committed CSV next to it is a faithful transcription of the
+PDF's table, produced by `code/extract_isco08_feor08_pdf.py`;
+`02_build_crosswalks.do` builds `crosswalk_isco08_feor08.dta` from the CSV.
+Transcription details and verification:
+[docs/NOTES.md](docs/NOTES.md#leg-4-the-ksh-pdf-transcription).
 
 ## Methodology notes / decisions
 
-- **Aggregation is by simple mean throughout** — both when averaging
+- **Aggregation is by unweighted mean throughout** — both when averaging
   standardized elements into a composite (step 05) and when collapsing across
-  matched occupations at each crosswalk leg (step 06). This matches the
-  standard task literature (Autor-Levy-Murnane 2003; Acemoglu-Autor 2011;
-  Autor-Dorn 2013), which uses equal-weighted averages of standardized items
-  rather than PCA/factor scores. PCA is a reasonable robustness check but not
-  the default here.
+  matched occupations at each crosswalk leg (step 06: `joinby` expands all
+  matches, then `collapse (mean)`). This matches the standard task literature
+  (Autor-Levy-Murnane 2003; Acemoglu-Autor 2011; Autor-Dorn 2013), which uses
+  equal-weighted averages of standardized items. There is no employment
+  weighting: the repo has no Hungarian employment counts by FEOR/ISCO, and US
+  employment weights would be wrong for the Hungarian occupational structure
+  anyway.
 - **Scales**: Importance (IM) for Abilities / Work Activities elements,
   Context (CX) for Work Context. The CXP (category-distribution) and CT/CTP
   scales in the Work Context file are dropped — a row is kept only if its
@@ -253,9 +179,6 @@ missing `0110`/`0210`.
   than every other occupation's. The only instance across 2019–2025: O\*NET
   24.1 publishes no 4.C.3.b.8 value for 15-2091.00 *Mathematical
   Technicians*, so that occupation is absent from data year 2019.
-- **No employment weighting**: the repo has no Hungarian employment counts by
-  FEOR/ISCO, so all aggregation is unweighted. US employment weights would be
-  wrong for the Hungarian occupational structure anyway.
 
 ## Conventions
 
@@ -276,18 +199,17 @@ Every definition lists its elements as `SCALE:ELEMENTID` tokens, where
 `SCALE` is the O\*NET scale to read — `IM` (Importance) for Abilities / Work
 Activities, `CX` (Context) for Work Context.
 
-For each definition, step 08 draws the panel in two views: yearly trends by
-1-digit FEOR major group (first digit of `feor_08`, English glosses of the
-KSH group names; each line the unweighted mean of a `task_*_z` across the
-group's 4-digit codes), and the transpose — one panel per task measure, one
-line per group. Major group 0 (armed forces) is excluded from the figures:
-two of its three codes are never rated in O\*NET and the third rests on a
-single thin source (the `0310` caveat above), so its line would be more
-artifact than signal. Per the comparability caveat, a drifting line is a
-group's relative position moving, not its task content changing level — and
-the flatness is itself informative: O\*NET re-rates only a slice of
-occupations per release, so year-to-year movement within a group is small by
-construction.
+For each definition, step 08 draws the panel as yearly trends by 1-digit
+FEOR major group (first digit of `feor_08`, English glosses of the KSH group
+names): one panel per major group, one line per task measure — each line the
+unweighted mean of a `task_*_z` across the group's 4-digit codes. Major
+group 0 (armed forces) is excluded: two of its three codes are never rated
+in O\*NET and the third rests on a single thin source (see the
+[coverage audit](docs/NOTES.md#feor-08-coverage)), so its line would be more
+artifact than signal. Per the [comparability caveat](#output), a line shows
+a group's relative position moving, not its task content changing level —
+and flatness is expected: O\*NET re-rates only a slice of occupations per
+release, so year-to-year movement within a group is small by construction.
 
 ### Acemoglu & Autor (2011) — `acemoglu-autor-2011`
 
@@ -303,8 +225,6 @@ Reference: Acemoglu, D. & Autor, D. (2011), "Skills, Tasks and Technologies:
 Implications for Employment and Earnings", *Handbook of Labor Economics* 4B.
 
 ![Yearly trend of the five task composites by 1-digit FEOR-08 major group, 2019–2025](output/acemoglu-autor-2011/task_trends_feor1.png)
-
-![Yearly trend by task measure, lines by FEOR-08 major group](output/acemoglu-autor-2011/task_trends_feor1_by_task.png)
 
 ### Autor & Dorn (2013) — `autor-dorn-2013`
 
@@ -338,8 +258,6 @@ and the Polarization of the US Labor Market", *American Economic Review*
 
 ![Yearly trend of the Autor–Dorn task aggregates by 1-digit FEOR-08 major group, 2019–2025](output/autor-dorn-2013/task_trends_feor1.png)
 
-![Yearly trend by Autor–Dorn task aggregate, lines by FEOR-08 major group](output/autor-dorn-2013/task_trends_feor1_by_task.png)
-
 ### Adding a task definition
 
 1. Copy `taskdef_acemoglu_autor_2011.do` to e.g. `taskdef_myversion.do`.
@@ -356,7 +274,7 @@ local defs "acemoglu_autor_2011 autor_dorn_2013 myversion"
 ```
 
 That's all. Every definition is then built in one run, each writing to its
-own `output/<year>/<slug>/` folders plus a panel and figures. The O\*NET
+own `output/<year>/<slug>/` folders plus a panel and figure. The O\*NET
 Excel files are parsed once per year (step 03) and shared by all, and no step
 outside the `taskdef_*.do` files needs editing.
 
