@@ -45,7 +45,9 @@ position, not in task levels.
 
 File names sort in run order. Steps 01 and 03–07 take the data year as a
 do-file argument (e.g. `do "code/03_append_onet.do" 2023`; step 07 takes the
-year list). Step 02 is year-independent.
+year list). Step 02 is year-independent. Every step also runs standalone:
+the year defaults to 2022 (07: to all years), and steps 04–08 self-load the
+default task definition if none is in memory.
 
 | Step | File | Scope | What it does |
 |------|------|-------|--------------|
@@ -72,12 +74,6 @@ temp/                  pipeline intermediates                     [ignored]
 output/                the task measures + figures                [in git]
 ```
 
-The three xlsx per data year are committed; the full release zips are not —
-they would nearly double the repo size. `01_download_onet.do` re-downloads a
-release into the gitignored `raw/` cache only when a year's xlsx are missing,
-e.g. after adding a new data year. `temp/` is likewise regenerated in full by
-steps 03–06; nothing in it is a source of truth.
-
 ## Crosswalk chain
 
 ```
@@ -90,8 +86,8 @@ O\*NET-SOC 2019 taxonomy (built on 2018 SOC), while the repo's ISCO-08
 crosswalk is keyed to 2010 SOC; there is no direct SOC-2018 → ISCO-08
 crosswalk, so it routes through the official BLS SOC-2010 ↔ ISCO-08 mapping.
 
-Data year 2019 skips both 2018-SOC legs (release 24.1 is still on the
-O\*NET-SOC 2010 taxonomy — see the [version policy](#the-onet-database)).
+Data year 2019 skips both 2018-SOC legs: its release, 24.1, is the last on
+the O\*NET-SOC **2010** taxonomy (25.0+ use O\*NET-SOC 2019).
 Its O\*NET-SOC → SOC 2010 step needs no crosswalk file: by construction, the
 first 7 characters of an O\*NET-SOC 2010 code (`XX-XXXX.YY`) *are* its 2010
 SOC code, and step 06 takes the substring. (O\*NET publishes no downloadable
@@ -117,10 +113,8 @@ release**:
 |-----------|------|------|------|------|------|------|------|
 | O\*NET release | 24.1 | 25.1 | 26.1 | 27.1 | 28.1 | 29.1 | 30.1 |
 
-Release 24.1 is the last on the **O\*NET-SOC 2010** taxonomy; 25.0+ use
-O\*NET-SOC 2019, which is why 2019 has its own crosswalk chain. To add a data
-year, extend the year → release map at the top of `01_download_onet.do` and
-the `years` macro in `00_master.do`.
+To add a data year, extend the year → release map at the top of
+`01_download_onet.do` and the `years` macro in `00_master.do`.
 
 ### Built from raw sources (legs 1–3)
 
@@ -179,19 +173,6 @@ Transcription details and verification:
   than every other occupation's. The only instance across 2019–2025: O\*NET
   24.1 publishes no 4.C.3.b.8 value for 15-2091.00 *Mathematical
   Technicians*, so that occupation is absent from data year 2019.
-
-## Conventions
-
-- All paths are **relative to the project root**; do-files assume that is the
-  working directory. No absolute paths, no path globals.
-- Globals hold **only** the task specification (`$taskdef_name`, `$taskcats`,
-  `$els_*`, `$rev_els`, `$lab_*`), never file paths. Each `taskdef_*.do`
-  drops the previous definition's globals before setting its own, so nothing
-  leaks between definitions in a multi-definition run.
-- The data year is a **do-file argument** (`args year`), not a global; steps
-  01 and 03–07 default to 2022 (07: to all years) when run standalone.
-- Steps 04–08 self-load the default task definition if run standalone with no
-  definition in memory.
 
 ## Task definitions
 
