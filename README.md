@@ -32,14 +32,10 @@ For each definition (`<def>` = `acemoglu-autor-2011`, `autor-dorn-2013`):
   [Task definitions](#task-definitions).
 
 These files are committed, so the measures can be used without running Stata.
-They cover **470–471 of the 485** four-digit FEOR-08 codes, depending on the
-year; the gaps are structural — occupations O\*NET never rates — not pipeline
-defects. Full audit: [docs/NOTES.md](docs/NOTES.md#feor-08-coverage).
 
-**Cross-year comparability caveat:** the composites are standardized *within*
-each year's release (step 05). A value is an occupation's relative position
-among that year's occupations; changes across years are changes in relative
-position, not in task levels.
+Each year covers **470–471 of the 485** four-digit FEOR-08 codes; every
+missing code is accounted for in the coverage audit
+([docs/NOTES.md](docs/NOTES.md#feor-08-coverage)).
 
 ## Pipeline (`code/`)
 
@@ -161,6 +157,10 @@ Transcription details and verification:
   weighting: the repo has no Hungarian employment counts by FEOR/ISCO, and US
   employment weights would be wrong for the Hungarian occupational structure
   anyway.
+- **Cross-year comparability caveat:** the composites are standardized
+  *within* each year's release (step 05). A value is an occupation's relative
+  position among that year's occupations; changes across years are changes in
+  relative position, not in task levels.
 - **Scales**: Importance (IM) for Abilities / Work Activities elements,
   Context (CX) for Work Context. The CXP (category-distribution) and CT/CTP
   scales in the Work Context file are dropped — a row is kept only if its
@@ -187,7 +187,8 @@ unweighted mean of a `task_*_z` across the group's 4-digit codes. Major
 group 0 (armed forces) is excluded: two of its three codes are never rated
 in O\*NET and the third rests on a single thin source (see the
 [coverage audit](docs/NOTES.md#feor-08-coverage)), so its line would be more
-artifact than signal. Per the [comparability caveat](#output), a line shows
+artifact than signal. Per the
+[comparability caveat](#methodology-notes--decisions), a line shows
 a group's relative position moving, not its task content changing level —
 and flatness is expected: O\*NET re-rates only a slice of occupations per
 release, so year-to-year movement within a group is small by construction.
