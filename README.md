@@ -1,59 +1,71 @@
 # O\*NET–FEOR
 
-Builds **task-content measures** from the O\*NET database and crosswalks them
-to Hungarian **FEOR-08** (4-digit) occupations, for every **data year
-2019–2025** (each year from that year's final O\*NET release). The task
-taxonomy lives in **swappable definition files** — the rest of the pipeline is
-taxonomy-agnostic, and several definitions build in one run, each to its own
-output folder. Two ship with the repo: **Acemoglu & Autor (2011)** and
-**Autor & Dorn (2013)** — see [Task definitions](#task-definitions).
+## Overview
 
-## How to run
+Builds task-content measures from the O\*NET database and crosswalks them to
+Hungarian **FEOR-08** (4-digit) occupations, for data years **2019–2025**.
+Each data year uses that year's final O\*NET release.
 
-From the **project root** (all paths in the do-files are relative to it):
+The task taxonomy — which O\*NET elements make up each task category — is
+defined separately from the pipeline, in swappable definition files
+(`code/taskdef_*.do`). The pipeline itself does not depend on which
+definition is loaded, so several definitions can be built in one run, each
+to its own output folder.
+
+The repo already contains two well-known definitions from the literature:
+
+- Acemoglu & Autor (2011)
+- Autor & Dorn (2013)
+
+See [Task definitions](#task-definitions).
+
+## Usage
+
+Run from the project root (all paths in the do-files are relative to it):
 
 ```stata
 do code/00_master.do
 ```
 
-The master builds the crosswalks once, loops over the `years` and `defs`
-macros, then pools each definition into a panel and draws its figure.
+This builds the crosswalks once, loops over the `years` and `defs` macros,
+then pools each definition into a panel and draws its trend figure.
 
 ## Output
 
 For each definition (`<def>` = `acemoglu-autor-2011`, `autor-dorn-2013`):
 
-- `output/<year>/<def>/task_measures_feor08.dta` — one file per data year;
-  one row per FEOR-08 code, the definition's composites in raw (`task_*`) and
-  standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`.
-- `output/<def>/task_measures_feor08_panel.dta` — the seven years stacked
-  long, one row per FEOR-08 code × `year`.
-- `output/<def>/task_trends_feor1.png` — the trend figure shown under
-  [Task definitions](#task-definitions).
+| File | Contents |
+|------|----------|
+| `output/<year>/<def>/task_measures_feor08_<def>.dta` | One file per data year. One row per FEOR-08 code: the definition's composites in raw (`task_*`) and standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`. |
+| `output/<def>/task_measures_feor08_panel_<def>.dta` | The seven years stacked long. One row per FEOR-08 code × `year`. |
+| `output/<def>/task_trends_feor1_<def>.png` | Trend figure, shown under [Task definitions](#task-definitions). |
 
 These files are committed, so the measures can be used without running Stata.
 
-Each year covers **470–471 of the 485** four-digit FEOR-08 codes; every
-missing code is accounted for in the coverage audit
+**Coverage:** each year covers 470–471 of the 485 four-digit FEOR-08 codes.
+Missing codes are documented in the coverage audit
 ([docs/NOTES.md](docs/NOTES.md#feor-08-coverage)).
 
 ## Pipeline (`code/`)
 
-File names sort in run order. Steps 01 and 03–07 take the data year as a
-do-file argument (e.g. `do "code/03_append_onet.do" 2023`; step 07 takes the
-year list). Step 02 is year-independent. Every step also runs standalone:
-the year defaults to 2022 (07: to all years), and steps 04–08 self-load the
-default task definition if none is in memory.
+File names sort in run order.
 
-| Step | File | Scope | What it does |
+- Steps 01 and 03–07 take the data year as a do-file argument, e.g.
+  `do "code/03_append_onet.do" 2023` (step 07 takes a year list instead).
+- Step 02 does not depend on the year.
+- Every step can also run standalone: if no year is given it defaults to
+  2022 (step 07 defaults to all years), and steps 04–08 load the default
+  task definition if none is already in memory.
+
+| Step | File | Scope | Description |
 |------|------|-------|--------------|
 | 00 | `00_master.do` | — | Entry point. Runs 02 once, 01+03 per year, 04–06 per year × definition, 07–08 per definition. |
 | 01 | `01_download_onet.do` | per year | Ensures the Abilities / Work Activities / Work Context xlsx are in `input/onet_<year>/`. The xlsx are committed; the release zip is downloaded (into the gitignored `raw/` cache) only when they are missing. Holds the year → release map. |
 | 02 | `02_build_crosswalks.do` | shared | Builds all four crosswalk legs into `input/crosswalks/`: downloads the O\*NET-SOC 2019 → 2018 SOC mapping, imports the two committed BLS files and the committed KSH transcription (see [Data sources](#data-sources-and-provenance)). |
-| 03 | `03_append_onet.do` | per year | Stacks the three Excel files into one long table, every element on every scale. Definition-independent, so Excel parsing happens once per year however many definitions are built. |
-| def | `taskdef_*.do` | per def | Defines the task taxonomy: name, elements (and scales) per category, reverse-coding, labels. **The only files with element IDs in them.** |
+| 03 | `03_append_onet.do` | per year | Stacks the three Excel files into one long table, every element on every scale. Definition-independent, so Excel parsing happens once per year regardless of how many definitions are built. |
+| def | `taskdef_*.do` | per def | Defines the task taxonomy: name, elements (and scales) per category, reverse-coding, labels. The only files with element IDs in them. |
 | 04 | `04_build_elements.do` | year × def | Keeps only the definition's elements, reshapes wide (one variable per element, `SCALE_ELEMENTID`). |
-| 05 | `05_build_measures.do` | year × def | Standardizes each element (within the year's release), reverse-codes where flagged, composites = unweighted means of standardized elements, re-standardized (`task_*_z`). |
+| 05 | `05_build_measures.do` | year × def | Standardizes each element (within the year's release), reverse-codes where flagged, computes composites as unweighted means of standardized elements, re-standardizes (`task_*_z`). |
 | 06 | `06_crosswalk_feor.do` | year × def | Crosswalks the composites from O\*NET-SOC down to FEOR-08 (chain depends on the year — see [Crosswalk chain](#crosswalk-chain)). |
 | 07 | `07_build_panel.do` | per def | Appends the per-year FEOR-08 files into one long panel with a `year` variable. |
 | 08 | `08_plot_trends.do` | per def | Draws the yearly trend figure from the panel (shown under [Task definitions](#task-definitions)). |
@@ -77,45 +89,44 @@ output/                the task measures + figures                [in git]
 2020–2025:  O*NET-SOC 2019 → SOC 2018 → SOC 2010 → ISCO-08 → FEOR-08
 ```
 
-For 2020–2025 the two SOC legs are needed because those releases use the
-O\*NET-SOC 2019 taxonomy (built on 2018 SOC), while the repo's ISCO-08
-crosswalk is keyed to 2010 SOC; there is no direct SOC-2018 → ISCO-08
-crosswalk, so it routes through the official BLS SOC-2010 ↔ ISCO-08 mapping.
-
-Data year 2019 skips both 2018-SOC legs: its release, 24.1, is the last on
-the O\*NET-SOC **2010** taxonomy (25.0+ use O\*NET-SOC 2019).
-Its O\*NET-SOC → SOC 2010 step needs no crosswalk file: by construction, the
-first 7 characters of an O\*NET-SOC 2010 code (`XX-XXXX.YY`) *are* its 2010
-SOC code, and step 06 takes the substring. (O\*NET publishes no downloadable
-2010-taxonomy → SOC crosswalk, so this is also the only option.)
-
-At every leg, occupations that map many-to-one are aggregated with an
-unweighted mean — see [Methodology notes](#methodology-notes--decisions).
+- **2020–2025** requires both SOC legs: those O\*NET releases use the
+  O\*NET-SOC 2019 taxonomy (built on 2018 SOC), while the repo's ISCO-08
+  crosswalk is keyed to 2010 SOC. No direct SOC-2018 → ISCO-08 crosswalk
+  exists, so the pipeline routes through the official BLS SOC-2010 ↔
+  ISCO-08 mapping.
+- **2019** skips both 2018-SOC legs. Its release (24.1) is the last one on
+  the O\*NET-SOC **2010** taxonomy — 25.0 and later use O\*NET-SOC 2019. No
+  crosswalk file is needed for O\*NET-SOC → SOC 2010: by construction, the
+  first 7 characters of an O\*NET-SOC 2010 code (`XX-XXXX.YY`) are already
+  its 2010 SOC code, so step 06 takes the substring. (O\*NET does not
+  publish a downloadable 2010-taxonomy → SOC crosswalk.)
+- At every leg, occupations that map many-to-one are aggregated with an
+  unweighted mean — see [Methodology notes](#methodology-notes--decisions).
 
 ## Data sources and provenance
 
-All inputs come from official sources and all are committed.
+All inputs are from official sources and are committed to the repository.
 
-### The O\*NET database
+### O\*NET database
 
 | Data | Source | Handled by |
 |------|--------|-----------|
 | O\*NET database (Excel) — Abilities, Work Activities, Work Context | [O\*NET Center database releases](https://www.onetcenter.org/database.html) → `db_<ver>_excel.zip` | `01_download_onet.do` |
 
-**Version policy:** each data year uses that year's **final (November)
-release**:
+**Version policy:** each data year uses that year's final (November)
+release.
 
 | Data year | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 |
 |-----------|------|------|------|------|------|------|------|
 | O\*NET release | 24.1 | 25.1 | 26.1 | 27.1 | 28.1 | 29.1 | 30.1 |
 
-To add a data year, extend the year → release map at the top of
+To add a data year: extend the year → release map at the top of
 `01_download_onet.do` and the `years` macro in `00_master.do`.
 
-### Built from raw sources (legs 1–3)
+### Crosswalk legs 1–3 (built from raw sources)
 
 `02_build_crosswalks.do` builds these from the raw files in
-`input/crosswalks/raw/`, so they are reproducible rather than taken on trust:
+`input/crosswalks/raw/`, so they are reproducible rather than taken on trust.
 
 | Leg | Crosswalk | Raw file | How it gets there | Official source |
 |-----|-----------|----------|-------------------|-----------------|
@@ -123,75 +134,77 @@ To add a data year, extend the year → release map at the top of
 | 2 | SOC 2010 ↔ SOC 2018 | `soc_2010_to_2018_crosswalk.xlsx` | committed | [BLS 2018 SOC crosswalks](https://www.bls.gov/soc/2018/crosswalks.htm) |
 | 3 | SOC 2010 ↔ ISCO-08 | `ISCO_SOC_Crosswalk.xls` | committed | [BLS 2010 SOC crosswalks](https://www.bls.gov/soc/soccrosswalks.htm) |
 
-The two BLS files are committed rather than fetched because BLS returns
-**HTTP 403** to `curl` and Stata's `copy` — the direct links
-(`https://www.bls.gov/soc/2018/soc_2010_to_2018_crosswalk.xlsx`,
-`https://www.bls.gov/soc/ISCO_SOC_Crosswalk.xls`) are correct but succeed
-only from an interactive browser session.
+The two BLS files (legs 2–3) are committed rather than downloaded
+automatically: BLS returns HTTP 403 to `curl` and Stata's `copy`. The direct
+links are correct, but only work from an interactive browser session:
 
-Leg 3 needs one fix-up: BLS maps a few SOC codes to 3-digit ISCO *minor
-groups*, which step 02 expands to their 4-digit unit groups — see
+- `https://www.bls.gov/soc/2018/soc_2010_to_2018_crosswalk.xlsx`
+- `https://www.bls.gov/soc/ISCO_SOC_Crosswalk.xls`
+
+Leg 3 fix-up: BLS maps a few SOC codes to 3-digit ISCO minor groups; step 02
+expands these to their 4-digit unit groups — see
 [docs/NOTES.md](docs/NOTES.md#leg-3-minor-group-expansion).
 
-### Transcribed from the KSH PDF (leg 4)
+### Crosswalk leg 4 (transcribed from the KSH PDF)
 
-KSH publishes the ISCO-08 → FEOR-08 mapping only as a **PDF**
-([direct link](https://www.ksh.hu/docs/osztalyozasok/feor/fordkulcs_isco_feor_hu.pdf),
-[KSH FEOR-08 menu](https://www.ksh.hu/feor_menu),
-[methodology](https://www.ksh.hu/docs/osztalyozasok/feor/feor_isco_modsz_utmut_2013_12_19.pdf);
-committed at `input/crosswalks/raw/fordkulcs_isco_feor_hu.pdf`), which Stata
-cannot read. The committed CSV next to it is a faithful transcription of the
-PDF's table, produced by `code/extract_isco08_feor08_pdf.py`;
-`02_build_crosswalks.do` builds `crosswalk_isco08_feor08.dta` from the CSV.
-Transcription details and verification:
-[docs/NOTES.md](docs/NOTES.md#leg-4-the-ksh-pdf-transcription).
+Source: the KSH ISCO-08 → FEOR-08 mapping, published as PDF only.
+
+- Committed at `input/crosswalks/raw/fordkulcs_isco_feor_hu.pdf`
+- [Direct link](https://www.ksh.hu/docs/osztalyozasok/feor/fordkulcs_isco_feor_hu.pdf),
+  [KSH FEOR-08 menu](https://www.ksh.hu/feor_menu),
+  [methodology](https://www.ksh.hu/docs/osztalyozasok/feor/feor_isco_modsz_utmut_2013_12_19.pdf)
+
+`code/extract_isco08_feor08_pdf.py` transcribes the PDF's table to a CSV,
+committed alongside it. `02_build_crosswalks.do` builds
+`crosswalk_isco08_feor08.dta` from the CSV. Transcription details and
+verification: [docs/NOTES.md](docs/NOTES.md#leg-4-the-ksh-pdf-transcription).
 
 ## Methodology notes / decisions
 
-- **Aggregation is by unweighted mean throughout** — both when averaging
-  standardized elements into a composite (step 05) and when collapsing across
-  matched occupations at each crosswalk leg (step 06: `joinby` expands all
-  matches, then `collapse (mean)`). This matches the standard task literature
-  (Autor-Levy-Murnane 2003; Acemoglu-Autor 2011; Autor-Dorn 2013), which uses
-  equal-weighted averages of standardized items. There is no employment
-  weighting: the repo has no Hungarian employment counts by FEOR/ISCO, and US
-  employment weights would be wrong for the Hungarian occupational structure
-  anyway.
-- **Cross-year comparability caveat:** the composites are standardized
-  *within* each year's release (step 05). A value is an occupation's relative
-  position among that year's occupations; changes across years are changes in
+- **Aggregation:** unweighted mean throughout — both when averaging
+  standardized elements into a composite (step 05) and when collapsing
+  across matched occupations at each crosswalk leg (step 06: `joinby`
+  expands all matches, then `collapse (mean)`). Matches the standard task
+  literature (Autor-Levy-Murnane 2003; Acemoglu-Autor 2011; Autor-Dorn
+  2013). No employment weighting is applied: the repo has no Hungarian
+  employment counts by FEOR/ISCO, and US employment weights would not fit
+  the Hungarian occupational structure.
+- **Cross-year comparability:** composites are standardized *within* each
+  year's release (step 05). A value is an occupation's relative position
+  among that year's occupations; changes across years are changes in
   relative position, not in task levels.
-- **Scales**: Importance (IM) for Abilities / Work Activities elements,
+- **Scales:** Importance (IM) for Abilities / Work Activities elements,
   Context (CX) for Work Context. The CXP (category-distribution) and CT/CTP
-  scales in the Work Context file are dropped — a row is kept only if its
+  scales in the Work Context file are dropped: a row is kept only if its
   `scaleid` matches the token's scale.
-- **Reverse coding**: 4.C.3.b.8 (Structured versus Unstructured Work) is
-  reversed, because a high value means high autonomy, i.e. *less* routine.
-- **Occupations missing a required element are dropped, not averaged over.**
-  If an occupation lacks any element the definition names, step 04 drops it
-  (listing it in the log) rather than building its composite from fewer items
-  than every other occupation's. The only instance across 2019–2025: O\*NET
-  24.1 publishes no 4.C.3.b.8 value for 15-2091.00 *Mathematical
-  Technicians*, so that occupation is absent from data year 2019.
+- **Reverse coding:** 4.C.3.b.8 (Structured versus Unstructured Work) is
+  reversed — a high value means high autonomy, i.e. *less* routine.
+- **Missing elements:** occupations missing a required element are dropped,
+  not averaged over fewer items. Step 04 drops any occupation lacking an
+  element the definition names (and logs it), rather than building its
+  composite from fewer items than every other occupation's. Only instance
+  across 2019–2025: O\*NET 24.1 has no 4.C.3.b.8 value for 15-2091.00
+  *Mathematical Technicians*, so that occupation is absent from data year
+  2019.
 
 ## Task definitions
 
-Every definition lists its elements as `SCALE:ELEMENTID` tokens, where
-`SCALE` is the O\*NET scale to read — `IM` (Importance) for Abilities / Work
-Activities, `CX` (Context) for Work Context.
+Elements are specified as `SCALE:ELEMENTID` tokens. `SCALE` is the O\*NET
+scale to read: `IM` (Importance) for Abilities / Work Activities, `CX`
+(Context) for Work Context.
 
-For each definition, step 08 draws the panel as yearly trends by 1-digit
-FEOR major group (first digit of `feor_08`, English glosses of the KSH group
-names): one panel per major group, one line per task measure — each line the
-unweighted mean of a `task_*_z` across the group's 4-digit codes. Major
-group 0 (armed forces) is excluded: two of its three codes are never rated
-in O\*NET and the third rests on a single thin source (see the
-[coverage audit](docs/NOTES.md#feor-08-coverage)), so its line would be more
-artifact than signal. Per the
-[comparability caveat](#methodology-notes--decisions), a line shows
-a group's relative position moving, not its task content changing level —
-and flatness is expected: O\*NET re-rates only a slice of occupations per
-release, so year-to-year movement within a group is small by construction.
+**Trend figures (step 08):** one panel per FEOR 1-digit major group (first
+digit of `feor_08`, labeled with English glosses of the KSH group names),
+one line per task measure. Each line is the unweighted mean of that
+measure's `task_*_z` across the group's 4-digit codes.
+
+- Major group 0 (armed forces) is excluded: two of its three codes are
+  never rated in O\*NET, and the third rests on a single thin source (see
+  the [coverage audit](docs/NOTES.md#feor-08-coverage)).
+- Per the comparability note above, a line shows a group's relative
+  position moving, not its task content changing level. Flat lines are
+  expected: O\*NET re-rates only a slice of occupations per release, so
+  year-to-year movement within a group is small by construction.
 
 ### Acemoglu & Autor (2011) — `acemoglu-autor-2011`
 
@@ -206,15 +219,17 @@ release, so year-to-year movement within a group is small by construction.
 Reference: Acemoglu, D. & Autor, D. (2011), "Skills, Tasks and Technologies:
 Implications for Employment and Earnings", *Handbook of Labor Economics* 4B.
 
-![Yearly trend of the five task composites by 1-digit FEOR-08 major group, 2019–2025](output/acemoglu-autor-2011/task_trends_feor1.png)
+![Yearly trend of the five task composites by 1-digit FEOR-08 major group, 2019–2025](output/acemoglu-autor-2011/task_trends_feor1_acemoglu-autor-2011.png)
 
 ### Autor & Dorn (2013) — `autor-dorn-2013`
 
-The three task aggregates behind Autor & Dorn's routine task intensity (RTI)
-index. **Provenance caveat:** the original Autor–Dorn measures come from the
-1977 DOT, not O\*NET; this is the standard O\*NET adaptation used in the later
-literature, building the aggregates from the same 16 elements as the
-Acemoglu–Autor composites — only the grouping differs:
+The three task aggregates behind Autor & Dorn's routine task intensity
+(RTI) index.
+
+**Provenance:** the original Autor–Dorn measures come from the 1977 DOT,
+not O\*NET. This is the standard O\*NET adaptation used in the later
+literature, built from the same 16 elements as the Acemoglu–Autor
+composites — only the grouping differs.
 
 | Category (code) | Composition |
 |-----------------|-------------|
@@ -222,58 +237,62 @@ Acemoglu–Autor composites — only the grouping differs:
 | Routine (`routine`) | the `rc` + `rm` elements (6), 4.C.3.b.8 reverse-coded as above |
 | Manual (`manual`) | the `nrmp` elements (4) |
 
-RTI itself is deliberately not in the output. The original
-`ln(R) − ln(A) − ln(M)` is undefined for standardized scores, and the
-literature's z-score version is a linear combination —
+RTI itself is not included in the output:
 
-```stata
-generate rti = task_routine_z - task_abstract_z - task_manual_z
-```
+- The original `ln(R) − ln(A) − ln(M)` is undefined for standardized
+  scores.
+- The literature's z-score version is a linear combination:
 
-— which commutes with the unweighted means used at every crosswalk leg, so
-building it from the FEOR-level output (one line, above) is identical to
-crosswalking an occupation-level RTI.
+  ```stata
+  generate rti = task_routine_z - task_abstract_z - task_manual_z
+  ```
 
-Reference: Autor, D. & Dorn, D. (2013), "The Growth of Low-Skill Service Jobs
-and the Polarization of the US Labor Market", *American Economic Review*
-103(5).
+- This commutes with the unweighted means used at every crosswalk leg, so
+  building it from the FEOR-level output (one line, above) is identical to
+  crosswalking an occupation-level RTI.
 
-![Yearly trend of the Autor–Dorn task aggregates by 1-digit FEOR-08 major group, 2019–2025](output/autor-dorn-2013/task_trends_feor1.png)
+Reference: Autor, D. & Dorn, D. (2013), "The Growth of Low-Skill Service
+Jobs and the Polarization of the US Labor Market", *American Economic
+Review* 103(5).
+
+![Yearly trend of the Autor–Dorn task aggregates by 1-digit FEOR-08 major group, 2019–2025](output/autor-dorn-2013/task_trends_feor1_autor-dorn-2013.png)
 
 ### Adding a task definition
 
 1. Copy `taskdef_acemoglu_autor_2011.do` to e.g. `taskdef_myversion.do`.
 2. Set `$taskdef_name` to a filesystem-safe slug (e.g. `my-version`). It
-   names the definition's output folder, so definitions never overwrite each
-   other.
+   names the definition's output folder, so definitions never overwrite
+   each other.
 3. Edit the element lists (`$els_*`), the category list (`$taskcats`), the
-   reverse-code list (`$rev_els`), and the labels (`$lab_*`). Categories can
-   be added or removed freely — the engine adapts.
+   reverse-code list (`$rev_els`), and the labels (`$lab_*`). Categories
+   can be added or removed freely — the engine adapts.
 4. Add the suffix to the `defs` macro in `00_master.do`:
 
-```stata
-local defs "acemoglu_autor_2011 autor_dorn_2013 myversion"
-```
+   ```stata
+   local defs "acemoglu_autor_2011 autor_dorn_2013 myversion"
+   ```
 
-That's all. Every definition is then built in one run, each writing to its
-own `output/<year>/<slug>/` folders plus a panel and figure. The O\*NET
-Excel files are parsed once per year (step 03) and shared by all, and no step
-outside the `taskdef_*.do` files needs editing.
+Every definition is then built in one run, each writing to its own
+`output/<year>/<slug>/` folders plus a panel and figure. The O\*NET Excel
+files are parsed once per year (step 03) and shared across definitions; no
+step outside the `taskdef_*.do` files needs editing.
 
 ## Licence
 
 The **code** in this repository is released under the [MIT Licence](LICENSE).
 
-The **data** carries the terms of its original publishers, not the MIT licence:
+The **data** carries the terms of its original publishers, not the MIT
+licence:
 
-- **O\*NET** data is published by the U.S. Department of Labor, Employment and
-  Training Administration under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-  O\*NET® is a trademark of USDOL/ETA.
-- **BLS** crosswalks (SOC 2010 ↔ 2018, SOC ↔ ISCO-08) are U.S. Government works
-  in the public domain.
-- **KSH** FEOR-08 material is published by the Hungarian Central Statistical
-  Office under its own terms.
+- **O\*NET** data is published by the U.S. Department of Labor, Employment
+  and Training Administration under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). O\*NET® is a
+  trademark of USDOL/ETA.
+- **BLS** crosswalks (SOC 2010 ↔ 2018, SOC ↔ ISCO-08) are U.S. Government
+  works in the public domain.
+- **KSH** FEOR-08 material is published by the Hungarian Central
+  Statistical Office under its own terms.
 
-If you use these measures, cite the paper behind the task definition you use
-(Acemoglu & Autor 2011; Autor & Dorn 2013) and the O\*NET database release
-for the underlying data.
+If you use these measures, cite the paper behind the task definition you
+use (Acemoglu & Autor 2011; Autor & Dorn 2013) and the O\*NET database
+release for the underlying data.

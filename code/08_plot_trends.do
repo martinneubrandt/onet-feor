@@ -16,8 +16,8 @@
 * patterns double as the colorblind-safe channel, so identity never rides on
 * hue alone). More than 8 categories fails loudly.
 *
-* Reads:  output/${taskdef_name}/task_measures_feor08_panel.dta
-* Writes: output/${taskdef_name}/task_trends_feor1.png
+* Reads:  output/${taskdef_name}/task_measures_feor08_panel_${taskdef_name}.dta
+* Writes: output/${taskdef_name}/task_trends_feor1_${taskdef_name}.png
 * The figure is embedded in the README.
 *
 * Run from the project root:  do "code/08_plot_trends.do"
@@ -28,7 +28,7 @@ clear
 * If run standalone with no definition in memory, load the default one.
 if "$taskcats" == "" do "code/taskdef_acemoglu_autor_2011.do"
 
-use "output/${taskdef_name}/task_measures_feor08_panel.dta", clear
+use "output/${taskdef_name}/task_measures_feor08_panel_${taskdef_name}.dta", clear
 
 * --- FEOR-08 major group = first digit --------------------------------------
 * feor_08 is numeric, so the armed-forces codes 0110/0210/0310 are stored as
@@ -103,4 +103,4 @@ twoway `plots', ///
 	graphregion(color(white)) plotregion(color(white)) ///
 	xsize(9) ysize(8)
 
-graph export "output/${taskdef_name}/task_trends_feor1.png", replace width(2600)
+graph export "output/${taskdef_name}/task_trends_feor1_${taskdef_name}.png", replace width(2600)
