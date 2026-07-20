@@ -24,7 +24,7 @@
 *         input/crosswalks/soc2010_to_soc2018.dta
 *         input/crosswalks/soc10_isco08.dta
 *         input/crosswalks/crosswalk_isco08_feor08.dta
-* Writes: output/<year>/${taskdef_name}/task_measures_feor08_${taskdef_name}.dta
+* Writes: output/<year>/${taskdef_name}/onet_task_measures_feor08_${taskdef_name}.dta
 *
 * The output folder AND the file name itself carry the definition's own name
 * ($taskdef_name), so building several definitions in one run cannot
@@ -106,4 +106,4 @@ label var feor_08_name "FEOR-08 occupation title"
 order feor_08 feor_08_name
 
 compress
-save "output/`year'/${taskdef_name}/task_measures_feor08_${taskdef_name}.dta", replace
+save "output/`year'/${taskdef_name}/onet_task_measures_feor08_${taskdef_name}.dta", replace

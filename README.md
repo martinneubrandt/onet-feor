@@ -36,9 +36,9 @@ For each definition (`<def>` = `acemoglu-autor-2011`, `autor-dorn-2013`):
 
 | File | Contents |
 |------|----------|
-| `output/<year>/<def>/task_measures_feor08_<def>.dta` | One file per data year. One row per FEOR-08 code: the definition's composites in raw (`task_*`) and standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`. |
-| `output/<def>/task_measures_feor08_panel_<def>.dta` | The seven years stacked long. One row per FEOR-08 code × `year`. |
-| `output/<def>/task_trends_feor1_<def>.png` | Trend figure, shown under [Task definitions](#task-definitions). |
+| `output/<year>/<def>/onet_task_measures_feor08_<def>.dta` | One file per data year. One row per FEOR-08 code: the definition's composites in raw (`task_*`) and standardized (`task_*_z`) form, plus `feor_08` and `feor_08_name`. |
+| `output/<def>/onet_task_measures_feor08_panel_<def>.dta` | The seven years stacked long. One row per FEOR-08 code × `year`. |
+| `output/<def>/onet_task_trends_feor1_<def>.png` | Trend figure, shown under [Task definitions](#task-definitions). |
 
 These files are committed, so the measures can be used without running Stata.
 
@@ -219,7 +219,7 @@ measure's `task_*_z` across the group's 4-digit codes.
 Reference: Acemoglu, D. & Autor, D. (2011), "Skills, Tasks and Technologies:
 Implications for Employment and Earnings", *Handbook of Labor Economics* 4B.
 
-![Yearly trend of the five task composites by 1-digit FEOR-08 major group, 2019–2025](output/acemoglu-autor-2011/task_trends_feor1_acemoglu-autor-2011.png)
+![Yearly trend of the five task composites by 1-digit FEOR-08 major group, 2019–2025](output/acemoglu-autor-2011/onet_task_trends_feor1_acemoglu-autor-2011.png)
 
 ### Autor & Dorn (2013) — `autor-dorn-2013`
 
@@ -255,7 +255,7 @@ Reference: Autor, D. & Dorn, D. (2013), "The Growth of Low-Skill Service
 Jobs and the Polarization of the US Labor Market", *American Economic
 Review* 103(5).
 
-![Yearly trend of the Autor–Dorn task aggregates by 1-digit FEOR-08 major group, 2019–2025](output/autor-dorn-2013/task_trends_feor1_autor-dorn-2013.png)
+![Yearly trend of the Autor–Dorn task aggregates by 1-digit FEOR-08 major group, 2019–2025](output/autor-dorn-2013/onet_task_trends_feor1_autor-dorn-2013.png)
 
 ### Adding a task definition
 

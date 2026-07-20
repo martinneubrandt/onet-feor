@@ -9,8 +9,8 @@
 * Comparing an occupation's value across years is meaningful as a change in
 * relative position, not as a change in task level.
 *
-* Reads:  output/<year>/${taskdef_name}/task_measures_feor08_${taskdef_name}.dta  (per year)
-* Writes: output/${taskdef_name}/task_measures_feor08_panel_${taskdef_name}.dta
+* Reads:  output/<year>/${taskdef_name}/onet_task_measures_feor08_${taskdef_name}.dta  (per year)
+* Writes: output/${taskdef_name}/onet_task_measures_feor08_panel_${taskdef_name}.dta
 *
 * Run from the project root:  do "code/07_build_panel.do" "<year list>"
 * e.g.                        do "code/07_build_panel.do" "2019 2020 2021"
@@ -29,7 +29,7 @@ capture mkdir "output/${taskdef_name}"
 tempfile panel
 local first 1
 foreach y of local years {
-	local f "output/`y'/${taskdef_name}/task_measures_feor08_${taskdef_name}.dta"
+	local f "output/`y'/${taskdef_name}/onet_task_measures_feor08_${taskdef_name}.dta"
 
 	* Fail loudly on a missing year rather than silently building a shorter
 	* panel - every year in the list must have been built by step 06.
@@ -52,4 +52,4 @@ sort feor_08 year
 order feor_08 year feor_08_name
 
 compress
-save "output/${taskdef_name}/task_measures_feor08_panel_${taskdef_name}.dta", replace
+save "output/${taskdef_name}/onet_task_measures_feor08_panel_${taskdef_name}.dta", replace
